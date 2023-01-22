@@ -7,6 +7,9 @@ vk_lock_test: vk_lock_test.cpp easyvk.o
 easyvk.o: easyvk.cpp easyvk.h
 	$(CXX) -c easyvk.cpp
 
+%.spv: %.cl
+	clspv -cl-std=CL2.0 -inline-entry-points $< -o $@
+
 clean:
 	rm *.o
 	rm *.run
