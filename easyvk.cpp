@@ -1,15 +1,9 @@
-#include <vulkan/vulkan.h>
+#include "easyvk.h"
+
 #include <vector>
 #include <array>
-#include <iostream>
-#include "easyvk.h"
-#include <fstream>
-#include <filesystem>
-#include "assert.h"
 #include <fstream>
 #include <set>
-#include <chrono>
-#include <thread>
 
 bool printDeviceInfo = false;
 
@@ -17,12 +11,10 @@ bool printDeviceInfo = false;
 #define vulkanCheck(result) { vulkanAssert((result), __FILE__, __LINE__); }
 inline void vulkanAssert(VkResult result, const char *file, int line, bool abort = true){
 	if (result != VK_SUCCESS) {
-		std::ofstream outputFile("/data/data/com.example.litmustestandroid/files/litmustest_message_passing_coherency_dis.txt");
-		outputFile << "vulkanAssert: ERROR " << result << "\n" << file << "\nline: " << line;
-		outputFile.close();
-		std::ofstream externalOutputFile("/storage/emulated/0/Android/data/com.example.litmustestandroid/files/litmustest_message_passing_coherency_dis.txt");
-		externalOutputFile << "vulkanAssert: ERROR " << result << "\n" << file << "\nline: " << line;
-		externalOutputFile.close();
+		FILE *ofp = fopen("vk-output.txt", "w");
+		// TODO: figure out where string_VkResult() actually is because vk_enum_string_helper.h is no more...
+		fprintf(ofp, "vulkanAssert: ERROR %d in '%s', line %d\n", result, file, line);
+		fclose(ofp);
 		exit(1);
 	}
 }
@@ -34,7 +26,7 @@ namespace easyvk {
 			, const char*                pLayerPrefix
 			, const char*                pMessage
 			, void*                      pUserData)-> VkBool32 {
-		std::ofstream debugFile("/data/data/com.example.litmustestandroid/files/debug.txt");
+		std::ofstream debugFile("vk-output.txt");
 		debugFile << "[Vulkan]:" << pLayerPrefix << ": " << pMessage << "\n";
 		debugFile.close();
 	    return VK_FALSE;
@@ -55,9 +47,9 @@ namespace easyvk {
 		VkApplicationInfo appInfo {
 		    VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		    nullptr,
-		    "Litmus Tester",
+		    "GPU Lock Tests",
 		    0,
-		    "LSD Lab",
+		    "HetArC",
 		    0,
 		    VK_API_VERSION_1_1
 		};
