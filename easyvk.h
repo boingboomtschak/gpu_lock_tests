@@ -48,6 +48,10 @@ namespace easyvk {
 			uint32_t load(size_t i) {
 				return *(data + i);
 			}
+			void clear() {
+				for (uint32_t i = 0; i < this->size; i++)
+					this->store(i, 0);
+			}
 
 			void teardown();
 		private:

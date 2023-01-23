@@ -9,24 +9,51 @@ using easyvk::Device;
 using easyvk::Buffer;
 using easyvk::Program;
 
-void run(FILE *ofp) {
-    Instance instance = Instance(true);
+void run() {
+    printf("Initializing test...\n");
+
+    Instance instance = Instance(false);
     Device device = instance.devices().at(0);
 
-    fprintf(ofp, "Using device '%s'\n", device.properties().deviceName);
+    printf("Using device '%s'\n", device.properties().deviceName);
 
+    Buffer lockBuf = Buffer(device, 1);
+    Buffer resultBuf = Buffer(device, 1);
+    Buffer itersBuf = Buffer(device, 1);
+    vector<Buffer> buffers = { lockBuf, resultBuf, itersBuf };
+
+    int iters = 100000;
+
+    printf("Creating and preparing program...\n");
+
+    Program program = Program(device, "lock_main.spv", buffers);
+
+    itersBuf.store(0, iters);
+    program.setWorkgroups(10);
+    program.setWorkgroupSize(1);
+    program.prepare();
+
+    printf("Running test...\n");
+
+    program.run();
+    printf("Result: %d\n", resultBuf.load(0));
+
+    printf("Cleaning up...\n");
+
+    program.teardown();
+
+    itersBuf.teardown();
+    resultBuf.teardown();
+    lockBuf.teardown();
+        
     device.teardown();
     instance.teardown();
 }
 
 int main() {
-    FILE *ofp = fopen("output.txt", "w");
-    if (ofp == NULL) 
-        throw runtime_error("Failed to open output file!");
-    fprintf(ofp, "Logging 'vk_lock_test' results...\n");
+    printf("Logging 'vk_lock_test' results...\n");
 
-    run(ofp);
+    run();
 
-    fclose(ofp);
     return 0;
 }

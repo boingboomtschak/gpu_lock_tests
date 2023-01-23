@@ -7,17 +7,49 @@
 
 bool printDeviceInfo = false;
 
+// Would use string_VkResult() for this but vk_enum_string_helper.h is no more...
+inline const char* vkResultString(VkResult res) {
+	switch(res) {
+		// 1.0
+		case VK_SUCCESS: return "VK_SUCCESS"; break;
+		case VK_NOT_READY: return "VK_NOT_READY"; break;
+		case VK_TIMEOUT: return "VK_TIMEOUT"; break;
+		case VK_EVENT_SET: return "VK_EVENT_SET"; break;
+		case VK_EVENT_RESET: return "VK_EVENT_RESET"; break;
+		case VK_INCOMPLETE: return "VK_INCOMPLETE"; break;
+		case VK_ERROR_OUT_OF_HOST_MEMORY: return "VK_ERROR_OUT_OF_HOST_MEMORY"; break;
+		case VK_ERROR_OUT_OF_DEVICE_MEMORY: return "VK_ERROR_OUT_OF_DEVICE_MEMORY"; break;
+		case VK_ERROR_INITIALIZATION_FAILED: return "VK_ERROR_INITIALIZATION_FAILED"; break;
+		case VK_ERROR_DEVICE_LOST: return "VK_ERROR_DEVICE_LOST"; break;
+		case VK_ERROR_MEMORY_MAP_FAILED: return "VK_ERROR_MEMORY_MAP_FAILED"; break;
+		case VK_ERROR_LAYER_NOT_PRESENT: return "VK_ERROR_LAYER_NOT_PRESENT"; break;
+		case VK_ERROR_EXTENSION_NOT_PRESENT: return "VK_ERROR_EXTENSION_NOT_PRESENT"; break;
+		case VK_ERROR_FEATURE_NOT_PRESENT: return "VK_ERROR_FEATURE_NOT_PRESENT"; break;
+		case VK_ERROR_INCOMPATIBLE_DRIVER: return "VK_ERROR_INCOMPATIBLE_DRIVER"; break;
+		case VK_ERROR_TOO_MANY_OBJECTS: return "VK_ERROR_TOO_MANY_OBJECTS"; break;
+		case VK_ERROR_FORMAT_NOT_SUPPORTED: return "VK_ERROR_FORMAT_NOT_SUPPORTED"; break;
+		case VK_ERROR_FRAGMENTED_POOL: return "VK_ERROR_FRAGMENTED_POOL"; break;
+		case VK_ERROR_UNKNOWN: return "VK_ERROR_UNKNOWN"; break;
+		// 1.1
+		case VK_ERROR_OUT_OF_POOL_MEMORY: return "VK_ERROR_OUT_OF_POOL_MEMORY"; break;
+		case VK_ERROR_INVALID_EXTERNAL_HANDLE: return "VK_ERROR_INVALID_EXTERNAL_HANDLE"; break;
+		// 1.2
+		case VK_ERROR_FRAGMENTATION: return "VK_ERROR_FRAGMENTATION"; break;
+		case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS: return "VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS"; break;
+		// 1.3
+		case VK_PIPELINE_COMPILE_REQUIRED: return "VK_PIPELINE_COMPILE_REQUIRED"; break;
+		default: return "UNKNOWN_ERROR"; break;
+	}
+}
+
 // Macro for checking Vulkan callbacks
-#define vulkanCheck(result) { vulkanAssert((result), __FILE__, __LINE__); }
-inline void vulkanAssert(VkResult result, const char *file, int line, bool abort = true){
+inline void vkAssert(VkResult result, const char *file, int line, bool abort = true){
 	if (result != VK_SUCCESS) {
-		FILE *ofp = fopen("vk-output.txt", "w");
-		// TODO: figure out where string_VkResult() actually is because vk_enum_string_helper.h is no more...
-		fprintf(ofp, "vulkanAssert: ERROR %d in '%s', line %d\n", result, file, line);
-		fclose(ofp);
+		printf("vkAssert: ERROR %s in '%s', line %d\n", vkResultString(result), file, line);
 		exit(1);
 	}
 }
+#define vkCheck(result) { vkAssert((result), __FILE__, __LINE__); }
 
 namespace easyvk {
 
@@ -36,7 +68,6 @@ namespace easyvk {
 		enableValidationLayers = _enableValidationLayers;
 		std::vector<const char *> enabledLayers;
 		std::vector<const char *> enabledExtensions;
-
 		if (enableValidationLayers) {
 			enabledLayers.push_back("VK_LAYER_KHRONOS_validation");
 			enabledExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
@@ -65,9 +96,9 @@ namespace easyvk {
 			(uint32_t)(enabledExtensions.size()),
             enabledExtensions.data()
         };
-
+		
 		// Create instance
-		vulkanCheck(vkCreateInstance(&createInfo, nullptr, &instance));
+		vkCheck(vkCreateInstance(&createInfo, nullptr, &instance));
 
 		if (enableValidationLayers) {
 			VkDebugReportCallbackCreateInfoEXT debugCreateInfo {
@@ -112,11 +143,11 @@ namespace easyvk {
 	std::vector<easyvk::Device> Instance::devices() {
 	    // Get physical device count
 		uint32_t deviceCount = 0;
-		vulkanCheck(vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr));
+		vkCheck(vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr));
 
 		// Enumerate physical devices based on deviceCount
 		std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
-		vulkanCheck(vkEnumeratePhysicalDevices(instance, &deviceCount, physicalDevices.data()));
+		vkCheck(vkEnumeratePhysicalDevices(instance, &deviceCount, physicalDevices.data()));
 
 		// Store devices in vector
 		auto devices = std::vector<easyvk::Device>{};
@@ -219,7 +250,7 @@ namespace easyvk {
 			}
 
 			// Create device
-			vulkanCheck(vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device));
+			vkCheck(vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device));
 
 			// Define command pool info
 			VkCommandPoolCreateInfo commandPoolCreateInfo {
@@ -230,7 +261,7 @@ namespace easyvk {
 			};
 
 			// Create command pool
-			vulkanCheck(vkCreateCommandPool(device, &commandPoolCreateInfo, nullptr, &computePool));
+			vkCheck(vkCreateCommandPool(device, &commandPoolCreateInfo, nullptr, &computePool));
 
 			// Define command buffer info
 			VkCommandBufferAllocateInfo commandBufferAI {
@@ -242,7 +273,7 @@ namespace easyvk {
 			};
 
 			// Allocate command buffers
-			vulkanCheck(vkAllocateCommandBuffers(device, &commandBufferAI, &computeCommandBuffer));
+			vkCheck(vkAllocateCommandBuffers(device, &commandBufferAI, &computeCommandBuffer));
 		}
 
 	// Retrieve device properties
@@ -285,7 +316,7 @@ namespace easyvk {
 	// Create new buffer
 	VkBuffer getNewBuffer(easyvk::Device &_device, uint32_t size) {
 		VkBuffer newBuffer;
-		vulkanCheck(vkCreateBuffer(_device.device, new VkBufferCreateInfo {
+		vkCheck(vkCreateBuffer(_device.device, new VkBufferCreateInfo {
 			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 			nullptr,
 			VkBufferCreateFlags {},
@@ -304,16 +335,16 @@ namespace easyvk {
             VkMemoryRequirements memReqs;
             vkGetBufferMemoryRequirements(device.device, buffer, &memReqs);
 
-            vulkanCheck(vkAllocateMemory(_device.device, new VkMemoryAllocateInfo {
+            vkCheck(vkAllocateMemory(_device.device, new VkMemoryAllocateInfo {
                 VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
                 nullptr,
                 memReqs.size,
                 memId}, nullptr, &memory));
 
-            vulkanCheck(vkBindBufferMemory(_device.device, buffer, memory, 0));
+            vkCheck(vkBindBufferMemory(_device.device, buffer, memory, 0));
 
             void* newData = new void*;
-            vulkanCheck(vkMapMemory(_device.device, memory, 0, VK_WHOLE_SIZE, VkMemoryMapFlags {}, &newData));
+            vkCheck(vkMapMemory(_device.device, memory, 0, VK_WHOLE_SIZE, VkMemoryMapFlags {}, &newData));
             data = (uint32_t*)newData;
 		}
 
@@ -344,7 +375,7 @@ namespace easyvk {
 
 		// Create shader module with spv code
 		VkShaderModule shaderModule;
-		vulkanCheck(vkCreateShaderModule(device.device, new VkShaderModuleCreateInfo {
+		vkCheck(vkCreateShaderModule(device.device, new VkShaderModuleCreateInfo {
 			VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 			nullptr,
 			0,
@@ -374,7 +405,7 @@ namespace easyvk {
 			layouts.data()
 		};
 		VkDescriptorSetLayout descriptorSetLayout;
-		vulkanCheck(vkCreateDescriptorSetLayout(device.device, &createInfo, nullptr, &descriptorSetLayout));
+		vkCheck(vkCreateDescriptorSetLayout(device.device, &createInfo, nullptr, &descriptorSetLayout));
 		return descriptorSetLayout;
 	}
 
@@ -423,7 +454,7 @@ namespace easyvk {
 			VkPipelineShaderStageCreateFlags {},
 			VK_SHADER_STAGE_COMPUTE_BIT,
 			shaderModule,
-			"litmus_test",
+			"lock_test",
 			&specInfo};
 		// Define compute pipeline create info
 		VkComputePipelineCreateInfo pipelineCI{
@@ -435,10 +466,10 @@ namespace easyvk {
 		};
 
 		// Create compute pipelines
-		vulkanCheck(vkCreateComputePipelines(device.device, {}, 1, &pipelineCI, nullptr,  &pipeline));
+		vkCheck(vkCreateComputePipelines(device.device, {}, 1, &pipelineCI, nullptr,  &pipeline));
 
 		// Start recording command buffer
-		vulkanCheck(vkBeginCommandBuffer(device.computeCommandBuffer, new VkCommandBufferBeginInfo {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO}));
+		vkCheck(vkBeginCommandBuffer(device.computeCommandBuffer, new VkCommandBufferBeginInfo {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO}));
 
 		// Bind pipeline and descriptor sets
 		vkCmdBindPipeline(device.computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
@@ -459,7 +490,7 @@ namespace easyvk {
 							//1, new VkMemoryBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT}, 0, {}, 0, {});
 
 		// End recording command buffer
-		vulkanCheck(vkEndCommandBuffer(device.computeCommandBuffer));
+		vkCheck(vkEndCommandBuffer(device.computeCommandBuffer));
 	}
 
 	void Program::run() {
@@ -479,8 +510,8 @@ namespace easyvk {
 		auto queue = device.computeQueue();
 
 		// Submit command buffer to queue, then wait until queue comes back to idle state
-		vulkanCheck(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
-		vulkanCheck(vkQueueWaitIdle(queue));
+		vkCheck(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+		vkCheck(vkQueueWaitIdle(queue));
 	}
 
 	void Program::setWorkgroups(uint32_t _numWorkgroups) {
@@ -514,7 +545,7 @@ namespace easyvk {
 			}
 
 			// Create a new pipeline layout object
-			vulkanCheck(vkCreatePipelineLayout(device.device, &createInfo, nullptr, &pipelineLayout));
+			vkCheck(vkCreatePipelineLayout(device.device, &createInfo, nullptr, &pipelineLayout));
 
 			// Define descriptor pool size
 			VkDescriptorPoolSize poolSize {
@@ -524,7 +555,7 @@ namespace easyvk {
 			auto descriptorSizes = std::array<VkDescriptorPoolSize, 1>({poolSize});
 
 			// Create a new descriptor pool object
-			vulkanCheck(vkCreateDescriptorPool(device.device, new VkDescriptorPoolCreateInfo {
+			vkCheck(vkCreateDescriptorPool(device.device, new VkDescriptorPoolCreateInfo {
 				VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 				nullptr,
 				VkDescriptorPoolCreateFlags {},
@@ -533,7 +564,7 @@ namespace easyvk {
 				descriptorSizes.data()}, nullptr, &descriptorPool));
 
 			// Allocate descriptor set
-			vulkanCheck(vkAllocateDescriptorSets(device.device, new VkDescriptorSetAllocateInfo {
+			vkCheck(vkAllocateDescriptorSets(device.device, new VkDescriptorSetAllocateInfo {
 				VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 				nullptr,
 				descriptorPool,
