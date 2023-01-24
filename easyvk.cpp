@@ -133,14 +133,6 @@ namespace easyvk {
 		vkEnumerateInstanceExtensionProperties(nullptr, &count, extensions.data());
 		std::set<std::string> results;
 
-		// Save the extension list to text file
-		std::ofstream extensionFile("extensions.txt");
-
-		for (auto& extension : extensions) {
-			extensionFile << extension.extensionName << "\n";
-		}
-		extensionFile.close();
-
 		// Print out vulkan's instance version
 		uint32_t version;
 		PFN_vkEnumerateInstanceVersion my_EnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion)vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion");
