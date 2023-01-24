@@ -73,6 +73,9 @@ namespace easyvk {
 			enabledExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 			//enabledExtensions.push_back("VK_KHR_shader_non_semantic_info");
 		}
+		#ifdef __APPLE__
+		enabledExtensions.push_back("VK_KHR_portability_enumeration");
+		#endif
 
 		// Define app information
 		VkApplicationInfo appInfo {
@@ -84,12 +87,18 @@ namespace easyvk {
 		    0,
 		    VK_API_VERSION_1_1
 		};
+		
+		#ifdef __APPLE__
+		VkInstanceCreateFlags instanceCreateFlags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+		#else
+		VkInstanceCreateFlags instanceCreateFlags;
+		#endif
 
 		// Define instance create info
 		VkInstanceCreateInfo createInfo {
             VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             nullptr,
-			VkInstanceCreateFlags {},
+			instanceCreateFlags,
             &appInfo,
             (uint32_t)(enabledLayers.size()),
             enabledLayers.data(),
@@ -125,7 +134,7 @@ namespace easyvk {
 		std::set<std::string> results;
 
 		// Save the extension list to text file
-		std::ofstream extensionFile("/data/data/com.example.litmustestandroid/files/extensions.txt");
+		std::ofstream extensionFile("extensions.txt");
 
 		for (auto& extension : extensions) {
 			extensionFile << extension.extensionName << "\n";
@@ -224,6 +233,8 @@ namespace easyvk {
 			}
 
 			// Define device info
+			std::vector<const char*> enabledExtensions { "VK_KHR_portability_subset" };
+
 			VkDeviceCreateInfo deviceCreateInfo;
 			if(vulkan_memory_model_supported) {
 				deviceCreateInfo = {
@@ -236,7 +247,11 @@ namespace easyvk {
 					},
 					VkDeviceCreateFlags {},
 					1,
-					queues.data()
+					queues.data(),
+					0,
+					nullptr,
+					(uint32_t)enabledExtensions.size(),
+					enabledExtensions.data()
 				};
 			}
 			else {
@@ -245,7 +260,11 @@ namespace easyvk {
 					nullptr,
 					VkDeviceCreateFlags{},
 					1,
-					queues.data()
+					queues.data(),
+					0,
+					nullptr,
+					(uint32_t)enabledExtensions.size(),
+					enabledExtensions.data()
 				};
 			}
 
