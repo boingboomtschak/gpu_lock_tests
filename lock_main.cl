@@ -13,12 +13,15 @@ static void unlock(global atomic_uint* l) {
 }
 
 kernel void lock_test(global atomic_uint* l, global uint* res, global uint* iters) {
-    for (uint i = 0; i < iters[0]; i++) {
+    uint x;
+    for (uint i = 0; i < *iters; i++) {
         lock(l);
 
-        uint x = *res;
+        x = *res;
         x++;
         *res = x;
+        //atomic_inc(res);
+        //*res += 1;
 
         unlock(l);
     }
