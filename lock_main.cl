@@ -1,4 +1,3 @@
-
 static void lock(global atomic_uint* l) {
     uint e = 0;
     uint acq = 0;

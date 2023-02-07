@@ -5,6 +5,21 @@
 #include <fstream>
 #include <set>
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
+void evk_log(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    #ifdef __ANDROID__
+    __android_log_vprint(ANDROID_LOG_INFO, "EasyVK", fmt, args);
+    #else
+    vprintf(fmt, args);
+    #endif
+    va_end(args);
+}
+
 bool printDeviceInfo = false;
 
 // Would use string_VkResult() for this but vk_enum_string_helper.h is no more...
@@ -37,7 +52,7 @@ inline const char* vkResultString(VkResult res) {
 		case VK_ERROR_FRAGMENTATION: return "VK_ERROR_FRAGMENTATION"; break;
 		case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS: return "VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS"; break;
 		// 1.3
-		case VK_PIPELINE_COMPILE_REQUIRED: return "VK_PIPELINE_COMPILE_REQUIRED"; break;
+		//case VK_PIPELINE_COMPILE_REQUIRED: return "VK_PIPELINE_COMPILE_REQUIRED"; break;
 		default: return "UNKNOWN_ERROR"; break;
 	}
 }
@@ -45,7 +60,7 @@ inline const char* vkResultString(VkResult res) {
 // Macro for checking Vulkan callbacks
 inline void vkAssert(VkResult result, const char *file, int line, bool abort = true){
 	if (result != VK_SUCCESS) {
-		printf("vkAssert: ERROR %s in '%s', line %d\n", vkResultString(result), file, line);
+		evk_log("vkAssert: ERROR %s in '%s', line %d\n", vkResultString(result), file, line);
 		exit(1);
 	}
 }
@@ -225,7 +240,7 @@ namespace easyvk {
 			}
 
 			// Define device info
-			std::vector<const char*> enabledExtensions { "VK_KHR_portability_subset" };
+			std::vector<const char*> enabledExtensions { };
 
 			VkDeviceCreateInfo deviceCreateInfo;
 			if(vulkan_memory_model_supported) {
@@ -381,20 +396,23 @@ namespace easyvk {
 		return ret;
 	}
 
-	VkShaderModule initShaderModule(easyvk::Device& device, const char* filepath) {
-		std::vector<uint32_t> code = read_spirv(filepath);
-
-		// Create shader module with spv code
+	VkShaderModule initShaderModule(easyvk::Device& device, std::vector<uint32_t> spvCode) {
 		VkShaderModule shaderModule;
 		vkCheck(vkCreateShaderModule(device.device, new VkShaderModuleCreateInfo {
 			VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 			nullptr,
 			0,
-			code.size() * sizeof(uint32_t),
-			code.data()
+			spvCode.size() * sizeof(uint32_t),
+			spvCode.data()
 		}, nullptr, &shaderModule));
 		return shaderModule;
 	}
+	VkShaderModule initShaderModule(easyvk::Device& device, const char* filepath) {
+		std::vector<uint32_t> code = read_spirv(filepath);
+		// Create shader module with spv code
+		return initShaderModule(device, code);
+	}
+
 
 	VkDescriptorSetLayout createDescriptorSetLayout(easyvk::Device &device, uint32_t size) {
 		std::vector<VkDescriptorSetLayoutBinding> layouts;
@@ -533,60 +551,69 @@ namespace easyvk {
 		workgroupSize = _workgroupSize;
 	}
 
+	void Program::initialize() {
+		descriptorSetLayout = createDescriptorSetLayout(device, buffers.size());
+
+		// Define pipeline layout info
+		VkPipelineLayoutCreateInfo createInfo {
+			VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			nullptr,
+			VkPipelineLayoutCreateFlags {},
+			1,
+			&descriptorSetLayout,
+			1,
+			new VkPushConstantRange {VK_SHADER_STAGE_COMPUTE_BIT, 0, easyvk::push_constant_size_bytes}
+		};
+
+		// Print out device's properties information
+		if(!printDeviceInfo) printDeviceInfo = true;
+
+		// Create a new pipeline layout object
+		vkCheck(vkCreatePipelineLayout(device.device, &createInfo, nullptr, &pipelineLayout));
+
+		// Define descriptor pool size
+		VkDescriptorPoolSize poolSize {
+			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			(uint32_t)buffers.size()
+		};
+		auto descriptorSizes = std::array<VkDescriptorPoolSize, 1>({poolSize});
+
+		// Create a new descriptor pool object
+		vkCheck(vkCreateDescriptorPool(device.device, new VkDescriptorPoolCreateInfo {
+			VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+			nullptr,
+			VkDescriptorPoolCreateFlags {},
+			1,
+			uint32_t(descriptorSizes.size()),
+			descriptorSizes.data()}, nullptr, &descriptorPool));
+
+		// Allocate descriptor set
+		vkCheck(vkAllocateDescriptorSets(device.device, new VkDescriptorSetAllocateInfo {
+			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+			nullptr,
+			descriptorPool,
+			1,
+			&descriptorSetLayout}, &descriptorSet));
+
+		writeSets(descriptorSet, buffers, writeDescriptorSets, bufferInfos);
+
+		// Update contents of descriptor set object
+		vkUpdateDescriptorSets(device.device, writeDescriptorSets.size(), &writeDescriptorSets.front(), 0,{});
+	}
+
+	Program::Program(easyvk::Device &_device, std::vector<uint32_t> spvCode, std::vector<Buffer> &_buffers) : 
+		device(_device), 
+		shaderModule(initShaderModule(_device, spvCode)), 
+		buffers(_buffers) {
+		initialize();
+	}
+	
 	Program::Program(easyvk::Device &_device, const char* filepath, std::vector<easyvk::Buffer> &_buffers) :
 		device(_device),
 		shaderModule(initShaderModule(_device, filepath)),
 		buffers(_buffers) {
-			descriptorSetLayout = createDescriptorSetLayout(device, buffers.size());
-
-			// Define pipeline layout info
-			VkPipelineLayoutCreateInfo createInfo {
-				VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-				nullptr,
-				VkPipelineLayoutCreateFlags {},
-				1,
-				&descriptorSetLayout,
-				1,
-				new VkPushConstantRange {VK_SHADER_STAGE_COMPUTE_BIT, 0, easyvk::push_constant_size_bytes}
-			};
-
-			// Print out device's properties information
-			if(!printDeviceInfo) {
-                printDeviceInfo = true;
-			}
-
-			// Create a new pipeline layout object
-			vkCheck(vkCreatePipelineLayout(device.device, &createInfo, nullptr, &pipelineLayout));
-
-			// Define descriptor pool size
-			VkDescriptorPoolSize poolSize {
-				VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				(uint32_t)buffers.size()
-			};
-			auto descriptorSizes = std::array<VkDescriptorPoolSize, 1>({poolSize});
-
-			// Create a new descriptor pool object
-			vkCheck(vkCreateDescriptorPool(device.device, new VkDescriptorPoolCreateInfo {
-				VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-				nullptr,
-				VkDescriptorPoolCreateFlags {},
-				1,
-				uint32_t(descriptorSizes.size()),
-				descriptorSizes.data()}, nullptr, &descriptorPool));
-
-			// Allocate descriptor set
-			vkCheck(vkAllocateDescriptorSets(device.device, new VkDescriptorSetAllocateInfo {
-				VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-				nullptr,
-				descriptorPool,
-				1,
-				&descriptorSetLayout}, &descriptorSet));
-
-			writeSets(descriptorSet, buffers, writeDescriptorSets, bufferInfos);
-
-			// Update contents of descriptor set object
-			vkUpdateDescriptorSets(device.device, writeDescriptorSets.size(), &writeDescriptorSets.front(), 0,{});
-		}
+		initialize();
+	}
 
 	void Program::teardown() {
 		vkDestroyShaderModule(device.device, shaderModule, nullptr);
