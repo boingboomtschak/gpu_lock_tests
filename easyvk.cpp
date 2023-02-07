@@ -1,9 +1,10 @@
-#include "easyvk.h"
-
 #include <vector>
 #include <array>
 #include <fstream>
 #include <set>
+#include <stdarg.h>
+
+#include "easyvk.h"
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -96,9 +97,9 @@ namespace easyvk {
 		VkApplicationInfo appInfo {
 		    VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		    nullptr,
-		    "GPU Lock Tests",
+		    "EasyVK Application",
 		    0,
-		    "HetArC",
+		    "Heterogeneous Programming Group",
 		    0,
 		    VK_API_VERSION_1_1
 		};
@@ -351,9 +352,10 @@ namespace easyvk {
 		return newBuffer;
 	}
 
-	Buffer::Buffer(easyvk::Device &_device, uint32_t size) :
+	Buffer::Buffer(easyvk::Device &_device, uint32_t _size) :
 		device(_device),
-		buffer(getNewBuffer(_device, size))
+		buffer(getNewBuffer(_device, _size)),
+		size(_size)
 		{
             // Allocate and map memory to new buffer
 	        auto memId = _device.selectMemory(buffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);

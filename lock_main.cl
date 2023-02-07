@@ -1,10 +1,23 @@
 static void lock(global atomic_uint* l) {
+    // Test and test and set
+    while(1) {
+        while(atomic_load_explicit(l, memory_order_acquire));
+        if (!atomic_exchange_explicit(l, 1, memory_order_acquire))
+            return;
+    }
+
+    // Test and set
+    //while (atomic_exchange_explicit(l, 1, memory_order_acquire));
+
+    // Compare and swap
+    /*
     uint e = 0;
     uint acq = 0;
     while (acq == 0) {
         acq = atomic_compare_exchange_strong_explicit(l, &e, 1, memory_order_acquire, memory_order_relaxed);
         e = 0;
     }
+    */
 }
 
 static void unlock(global atomic_uint* l) {

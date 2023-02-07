@@ -49,8 +49,8 @@ namespace easyvk {
 				return *(data + i);
 			}
 			void clear() {
-				for (uint32_t i = 0; i < this->size; i++)
-					this->store(i, 0);
+				for (uint32_t i = 0; i < size; i++)
+					store(i, 0);
 			}
 
 			void teardown();

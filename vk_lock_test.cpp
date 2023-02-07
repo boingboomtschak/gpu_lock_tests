@@ -1,4 +1,6 @@
 #include <stdexcept>
+#include <stdarg.h>
+
 #include "easyvk.h"
 
 #ifdef __ANDROID__
@@ -42,7 +44,9 @@ extern "C" void run() {
     ; 
     Program program = Program(device, spvCode, buffers);
 
-    int iters = 1000;
+    uint32_t iters = 1000;
+    lockBuf.clear();
+    resultBuf.clear();
     itersBuf.store(0, iters);
 
     program.setWorkgroups(8);
