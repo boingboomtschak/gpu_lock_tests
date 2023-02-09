@@ -24,7 +24,6 @@ namespace easyvk {
 			Device(Instance &_instance, VkPhysicalDevice _physicalDevice);
 			VkDevice device;
 			VkPhysicalDeviceProperties properties();
-			VkPhysicalDeviceLimits limits();
 			uint32_t selectMemory(VkBuffer buffer, VkMemoryPropertyFlags flags);
 			VkQueue computeQueue();
 			VkCommandBuffer computeCommandBuffer;

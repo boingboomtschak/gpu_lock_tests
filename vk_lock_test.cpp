@@ -34,6 +34,7 @@ extern "C" void run() {
     Device device = instance.devices().at(0);
 
     log("Using device '%s'\n", device.properties().deviceName);
+    log("MaxComputeWorkGroupInvocations: %d\n", device.properties().limits.maxComputeWorkGroupInvocations);
 
     Buffer lockBuf = Buffer(device, 1);
     Buffer resultBuf = Buffer(device, 1);
@@ -45,18 +46,22 @@ extern "C" void run() {
     Program program = Program(device, spvCode, buffers);
 
     uint32_t iters = 1000;
+    uint32_t workgroups = 8;
     lockBuf.clear();
     resultBuf.clear();
     itersBuf.store(0, iters);
 
-    program.setWorkgroups(8);
+    program.setWorkgroups(workgroups);
     program.setWorkgroupSize(1);
     program.prepare();
 
     log("Running test...\n");
 
     program.run();
-    log("Result: %d\n", resultBuf.load(0));
+
+    uint32_t result = resultBuf.load(0);
+    const char* ans = result == (iters * workgroups) ? "CORRECT" : "INCORRECT";
+    log("Result: %d...%s\n", result, ans);
 
     log("Cleaning up...\n");
 
