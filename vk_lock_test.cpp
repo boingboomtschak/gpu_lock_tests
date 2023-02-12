@@ -36,43 +36,104 @@ extern "C" void run() {
     log("Using device '%s'\n", device.properties().deviceName);
     log("MaxComputeWorkGroupInvocations: %d\n", device.properties().limits.maxComputeWorkGroupInvocations);
 
+    uint32_t workgroups = 128;
+    uint32_t lock_iters = 1000;
+    uint32_t test_iters = 8;
+
     Buffer lockBuf = Buffer(device, 1);
     Buffer resultBuf = Buffer(device, 1);
-    Buffer itersBuf = Buffer(device, 1);
-    vector<Buffer> buffers = { lockBuf, resultBuf, itersBuf };
-    std::vector<uint32_t> spvCode = 
-    #include "lock_main.cinit"
-    ; 
-    Program program = Program(device, spvCode, buffers);
+    Buffer lockItersBuf = Buffer(device, 1);
+    vector<Buffer> buffers = { lockBuf, resultBuf, lockItersBuf };
+    lockItersBuf.store(0, lock_iters);
 
-    uint32_t iters = 1000;
-    uint32_t workgroups = 8;
-    lockBuf.clear();
-    resultBuf.clear();
-    itersBuf.store(0, iters);
+    // -------------- TAS LOCK --------------
 
-    program.setWorkgroups(workgroups);
-    program.setWorkgroupSize(1);
-    program.prepare();
+    log("Testing TAS lock...\n");
+    log("%d workgroups, %d locks per thread, tests run %d times.\n", workgroups, lock_iters, test_iters);
+    vector<uint32_t> tasSpvCode =
+    #include "tas_lock.cinit"
+    ;
+    Program tasProgram = Program(device, tasSpvCode, buffers);
+    tasProgram.setWorkgroups(workgroups);
+    tasProgram.setWorkgroupSize(1);
+    tasProgram.prepare();
 
-    log("Running test...\n");
+    for (int i = 1; i <= test_iters; i++) {
+        log("  Running test %d: ", i);
+        lockBuf.clear();
+        resultBuf.clear();
 
-    program.run();
+        tasProgram.run();
 
-    uint32_t result = resultBuf.load(0);
-    const char* ans = result == (iters * workgroups) ? "CORRECT" : "INCORRECT";
-    log("Result: %d...%s\n", result, ans);
+        uint32_t result = resultBuf.load(0);
+        const char* resultStr = result == (lock_iters * workgroups) ? "\u001b[33mCORRECT\u001b[0m" : "\u001b[31mINCORRECT\u001b[0m";
+        log("%s\n", resultStr);
+    }
+
+    // -------------- TTAS LOCK --------------
+
+    log("Testing TTAS lock...\n");
+    log("%d workgroups, %d locks per thread, tests run %d times.\n", workgroups, lock_iters, test_iters);
+    vector<uint32_t> ttasSpvCode =
+    #include "ttas_lock.cinit"
+    ;
+    Program ttasProgram = Program(device, ttasSpvCode, buffers);
+    ttasProgram.setWorkgroups(workgroups);
+    ttasProgram.setWorkgroupSize(1);
+    ttasProgram.prepare();
+
+    for (int i = 1; i <= test_iters; i++) {
+        log("  Running test %d: ", i);
+        lockBuf.clear();
+        resultBuf.clear();
+
+        ttasProgram.run();
+
+        uint32_t result = resultBuf.load(0);
+        const char* resultStr = result == (lock_iters * workgroups) ? "\u001b[33mCORRECT\u001b[0m" : "\u001b[31mINCORRECT\u001b[0m";
+        log("%s\n", resultStr);
+    }
+
+    // -------------- CAS LOCK --------------
+
+    log("Testing CAS lock...\n");
+    log("%d workgroups, %d locks per thread, tests run %d times.\n", workgroups, lock_iters, test_iters);
+    vector<uint32_t> casSpvCode =
+    #include "cas_lock.cinit"
+    ;
+    Program casProgram = Program(device, casSpvCode, buffers);
+    casProgram.setWorkgroups(workgroups);
+    casProgram.setWorkgroupSize(1);
+    casProgram.prepare();
+
+    for (int i = 1; i <= test_iters; i++) {
+        log("  Running test %d: ", i);
+        lockBuf.clear();
+        resultBuf.clear();
+
+        casProgram.run();
+
+        uint32_t result = resultBuf.load(0);
+        const char* resultStr = result == (lock_iters * workgroups) ? "\u001b[33mCORRECT\u001b[0m" : "\u001b[31mINCORRECT\u001b[0m";
+        log("%s\n", resultStr);
+    }
+
+    // save results to json string here
 
     log("Cleaning up...\n");
 
-    program.teardown();
+    tasProgram.teardown();
+    ttasProgram.teardown();
+    casProgram.teardown();
 
-    itersBuf.teardown();
+    lockItersBuf.teardown();
     resultBuf.teardown();
     lockBuf.teardown();
         
     device.teardown();
     instance.teardown();
+
+    // return json string, eventually
 }
 
 int main() {
