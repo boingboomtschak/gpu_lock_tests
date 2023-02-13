@@ -80,7 +80,6 @@ extern "C" char* run(
 
     uint32_t test_total = workgroups * lock_iters;
     uint32_t total_locks = test_total * test_iters;
-    uint32_t total_failures = 0;
 
     Buffer lockBuf = Buffer(device, 1);
     Buffer resultBuf = Buffer(device, 1);
@@ -100,7 +99,7 @@ extern "C" char* run(
     tasProgram.setWorkgroups(workgroups);
     tasProgram.setWorkgroupSize(1);
     tasProgram.prepare();
-    total_failures = 0;
+    uint32_t tas_failures = 0;
 
     for (int i = 1; i <= test_iters; i++) {
         log("  Test %d: ", i);
@@ -120,9 +119,10 @@ extern "C" char* run(
         else
             log("\u001b[32m");
         log("%d / %d, %.2f%%\u001b[0m\n", test_failures, test_total, test_percent);
-        total_failures += test_failures;
+        tas_failures += test_failures;
     }
-    log("%d / %d failures, about %.2f%%\n", total_failures, total_locks, (float)total_failures / (float)total_locks * 100);
+    float tas_failure_percent = (float)tas_failures / (float)total_locks * 100;
+    log("%d / %d failures, about %.2f%%\n", tas_failures, total_locks, tas_failure_percent);
 
     // -------------- TTAS LOCK --------------
 
@@ -136,7 +136,7 @@ extern "C" char* run(
     ttasProgram.setWorkgroups(workgroups);
     ttasProgram.setWorkgroupSize(1);
     ttasProgram.prepare();
-    total_failures = 0;
+    uint32_t ttas_failures = 0;
 
     for (int i = 1; i <= test_iters; i++) {
         log("  Test %d: ", i);
@@ -156,9 +156,10 @@ extern "C" char* run(
         else
             log("\u001b[32m");
         log("%d / %d, %.2f%%\u001b[0m\n", test_failures, test_total, test_percent);
-        total_failures += test_failures;
+        ttas_failures += test_failures;
     }
-    log("%d / %d failures, about %.2f%%\n", total_failures, total_locks, (float)total_failures / (float)total_locks * 100);
+    float ttas_failure_percent = (float)ttas_failures / (float)total_locks * 100;
+    log("%d / %d failures, about %.2f%%\n", ttas_failures, total_locks, ttas_failure_percent);
 
     // -------------- CAS LOCK --------------
 
@@ -172,7 +173,7 @@ extern "C" char* run(
     casProgram.setWorkgroups(workgroups);
     casProgram.setWorkgroupSize(1);
     casProgram.prepare();
-    total_failures = 0;
+    uint32_t cas_failures = 0;
 
     for (int i = 1; i <= test_iters; i++) {
         log("  Test %d: ", i);
@@ -192,9 +193,10 @@ extern "C" char* run(
         else
             log("\u001b[32m");
         log("%d / %d, %.2f%%\u001b[0m\n", test_failures, test_total, test_percent);
-        total_failures += test_failures;
+        cas_failures += test_failures;
     }
-    log("%d / %d failures, about %.2f%%\n", total_failures, total_locks, (float)total_failures / (float)total_locks * 100);
+    float cas_failure_percent = (float)cas_failures / (float)total_locks * 100;
+    log("%d / %d failures, about %.2f%%\n", cas_failures, total_locks, cas_failure_percent);
 
     log("----------------------------------------------------------\n");
     log("Cleaning up...\n");
@@ -217,7 +219,13 @@ extern "C" char* run(
         {"workgroups", workgroups},
         {"lock-iters", lock_iters},
         {"test-iters", test_iters},
-        {"total-locks", total_locks}
+        {"total-locks", total_locks},
+        {"tas-failures", tas_failures},
+        {"tas-failure-percent", tas_failure_percent},
+        {"ttas-failures", ttas_failures},
+        {"ttas-failure-percent", ttas_failure_percent},
+        {"cas-failures", cas_failures},
+        {"cas-failure-percent", cas_failure_percent}
     };
 
     string json_string = result_json.dump();
@@ -228,7 +236,7 @@ extern "C" char* run(
 
 int main() {
     char* res = run();
-    //log("%s\n", res);
+    log("%s\n", res);
     delete[] res;
     return 0;
 }
