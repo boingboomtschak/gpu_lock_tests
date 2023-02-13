@@ -23,7 +23,7 @@ namespace easyvk {
 		public:
 			Device(Instance &_instance, VkPhysicalDevice _physicalDevice);
 			VkDevice device;
-			VkPhysicalDeviceProperties properties();
+			VkPhysicalDeviceProperties properties;
 			uint32_t selectMemory(VkBuffer buffer, VkMemoryPropertyFlags flags);
 			VkQueue computeQueue();
 			VkCommandBuffer computeCommandBuffer;
@@ -84,4 +84,6 @@ namespace easyvk {
 			uint32_t numWorkgroups;
 			uint32_t workgroupSize;
 	};
+
+	const char* vkDeviceType(VkPhysicalDeviceType type);
 }

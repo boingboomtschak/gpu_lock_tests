@@ -1,5 +1,6 @@
 #include <stdexcept>
 #include <stdarg.h>
+#include <string>
 
 #include "easyvk.h"
 #include "json.h"
@@ -11,11 +12,43 @@
 
 using std::vector;
 using std::runtime_error;
-
+using std::string;
+using std::copy;
+using nlohmann::json;
 using easyvk::Instance;
 using easyvk::Device;
 using easyvk::Buffer;
 using easyvk::Program;
+using easyvk::vkDeviceType;
+
+const char* os_name() {
+    #ifdef _WIN32
+    return "Windows (32-bit)";
+    #elif _WIN64
+    return "Windows (64-bit)";
+    #elif __APPLE__
+        #include <TargetConditionals.h>
+        #if TARGET_IPHONE_SIMULATOR
+        return "iPhone (Simulator)";
+        #elif TARGET_OS_MACCATALYST
+        return "macOS Catalyst";
+        #elif TARGET_OS_IPHONE
+        return "iPhone";
+        #elif TARGET_OS_MAC
+        return "macOS";
+        #else
+        return "Other (Apple)";
+        #endif
+    #elif __ANDROID__
+    return "Android";
+    #elif __linux__
+    return "Linux";
+    #elif __unix || __unix||
+    return "Unix";
+    #else
+    return "Other";
+    #endif
+}
 
 void log(const char* fmt, ...) {
     va_list args;
@@ -28,18 +61,23 @@ void log(const char* fmt, ...) {
     va_end(args);
 }
 
-extern "C" void run() {
+extern "C" char* run(
+    uint32_t workgroups = 16,
+    uint32_t lock_iters = 1000,
+    uint32_t test_iters = 16
+) {
     log("Initializing test...\n");
 
     Instance instance = Instance(false);
     Device device = instance.devices().at(0);
 
-    log("Using device '%s'\n", device.properties().deviceName);
-    log("MaxComputeWorkGroupInvocations: %d\n", device.properties().limits.maxComputeWorkGroupInvocations);
+    log("Using device '%s'\n", device.properties.deviceName);
 
-    uint32_t workgroups = 128;
-    uint32_t lock_iters = 1000;
-    uint32_t test_iters = 8;
+    uint32_t maxComputeWorkGroupInvocations = device.properties.limits.maxComputeWorkGroupInvocations;
+    log("MaxComputeWorkGroupInvocations: %d\n", maxComputeWorkGroupInvocations);
+    if (workgroups > maxComputeWorkGroupInvocations)
+        workgroups = maxComputeWorkGroupInvocations;
+
     uint32_t test_total = workgroups * lock_iters;
     uint32_t total_locks = test_total * test_iters;
     uint32_t total_failures = 0;
@@ -158,8 +196,6 @@ extern "C" void run() {
     }
     log("%d / %d failures, about %.2f%%\n", total_failures, total_locks, (float)total_failures / (float)total_locks * 100);
 
-    // save results to json string here
-
     log("----------------------------------------------------------\n");
     log("Cleaning up...\n");
 
@@ -174,10 +210,25 @@ extern "C" void run() {
     device.teardown();
     instance.teardown();
 
-    // return json string, eventually
+    json result_json = {
+        {"os-name", os_name()},
+        {"device-name", device.properties.deviceName},
+        {"device-type", vkDeviceType(device.properties.deviceType)},
+        {"workgroups", workgroups},
+        {"lock-iters", lock_iters},
+        {"test-iters", test_iters},
+        {"total-locks", total_locks}
+    };
+
+    string json_string = result_json.dump();
+    char* json_cstring = new char[json_string.size() + 1];
+    copy(json_string.data(), json_string.data() + json_string.size() + 1, json_cstring);
+    return json_cstring;
 }
 
 int main() {
-    run();
+    char* res = run();
+    //log("%s\n", res);
+    delete[] res;
     return 0;
 }
