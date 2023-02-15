@@ -58,6 +58,8 @@ inline const char* vkResultString(VkResult res) {
 	}
 }
 
+
+
 // Macro for checking Vulkan callbacks
 inline void vkAssert(VkResult result, const char *file, int line, bool abort = true){
 	if (result != VK_SUCCESS) {
@@ -68,6 +70,17 @@ inline void vkAssert(VkResult result, const char *file, int line, bool abort = t
 #define vkCheck(result) { vkAssert((result), __FILE__, __LINE__); }
 
 namespace easyvk {
+
+	const char* vkDeviceType(VkPhysicalDeviceType type) {
+		switch(type) {
+			case VK_PHYSICAL_DEVICE_TYPE_OTHER: return "VK_PHYSICAL_DEVICE_TYPE_OTHER"; break;
+			case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: return "VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU"; break;
+			case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU: return "VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU"; break;
+			case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU: return "VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU"; break;
+			case VK_PHYSICAL_DEVICE_TYPE_CPU: return "VK_PHYSICAL_DEVICE_TYPE_CPU"; break;
+			default: return "UNKNOWN_DEVICE_TYPE"; break;
+		}
+	}
 
 	static auto VKAPI_ATTR debugReporter(
 			VkDebugReportFlagsEXT , VkDebugReportObjectTypeEXT, uint64_t, size_t, int32_t
@@ -301,15 +314,10 @@ namespace easyvk {
 
 			// Allocate command buffers
 			vkCheck(vkAllocateCommandBuffers(device, &commandBufferAI, &computeCommandBuffer));
+			
+			// Get device properties
+			vkGetPhysicalDeviceProperties(physicalDevice, &properties);
 		}
-
-	// Retrieve device properties
-	VkPhysicalDeviceProperties Device::properties() {
-		VkPhysicalDeviceProperties physicalDeviceProperties;
-		vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
-
-		return physicalDeviceProperties;
-	}
 
 	uint32_t Device::selectMemory(VkBuffer buffer, VkMemoryPropertyFlags flags) {
 		VkPhysicalDeviceMemoryProperties memProperties;

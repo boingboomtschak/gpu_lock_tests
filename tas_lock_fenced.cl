@@ -1,4 +1,5 @@
 static void lock(global atomic_uint* l) {
+    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release, memory_scope_device);
     while (atomic_exchange_explicit(l, 1, memory_order_acquire));
 }
 

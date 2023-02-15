@@ -1,5 +1,11 @@
 static void lock(global atomic_uint* l) {
-    while (atomic_exchange_explicit(l, 1, memory_order_acquire));
+    uint e, acq;
+    e = 0;
+    acq = 0;
+    while (acq == 0) {
+        acq = atomic_compare_exchange_strong_explicit(l, &e, 1, memory_order_acquire, memory_order_relaxed);
+        e = 0;
+    }
 }
 
 static void unlock(global atomic_uint* l) {
