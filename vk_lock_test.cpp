@@ -362,10 +362,16 @@ extern "C" char* run(uint32_t workgroups, uint32_t lock_iters, uint32_t test_ite
         {"total-locks", total_locks},
         {"tas-failures", tas_failures},
         {"tas-failure-percent", tas_failure_percent},
+        {"tas-fenced-failures", tas_fenced_failures},
+        {"tas-fenced-failure-percent", tas_fenced_failure_percent},
         {"ttas-failures", ttas_failures},
         {"ttas-failure-percent", ttas_failure_percent},
+        {"ttas-fenced-failures", ttas_fenced_failures},
+        {"ttas-fenced-failure-percent", ttas_fenced_failure_percent},
         {"cas-failures", cas_failures},
-        {"cas-failure-percent", cas_failure_percent}
+        {"cas-failure-percent", cas_failure_percent},
+        {"cas-fenced-failures", cas_fenced_failures},
+        {"cas-fenced-failure-percent", cas_fenced_failure_percent}
     };
 
     string json_string = result_json.dump();
